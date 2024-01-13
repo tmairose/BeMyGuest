@@ -14,6 +14,11 @@ const isProduction = environment === 'production';
 //newSection/ Initialize Express Application:
 const app = express();
 
+//newSection/ Add Routes to App
+
+const routes = require("./routes");
+app.use(routes);
+
 
 //newSection/ Connect Middlewares for use:
 
@@ -76,3 +81,15 @@ app.use(express.json());
     //The `XSRF-TOKEN` cookie value needs to be sent in the header of any request with all HTTP verbs 
     // besides `GET`. This header will be used to validate the `_csrf` cookie to confirm that the 
     // request comes from your site and not an unauthorized site.
+
+
+
+
+
+
+
+
+
+
+
+module.exports = app;
