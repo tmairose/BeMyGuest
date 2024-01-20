@@ -44,6 +44,12 @@ router.post('/', async (req, res, next) => {
 
 });
 
+//newSection/ Log Out
+router.delete('/', (_req, res) => {
+    res.clearCookie('token');
+    return res.json({ message: 'Success' });
+});
+
 
 
 
