@@ -10,12 +10,58 @@ const { User } = require('../../db/models');
 const router = express.Router();
 
 //newSection/ Sign Up
-router.post('/', async (req, res) => {
+
+
+    //subSection/ Validate Signup
+    const validateSignup = [
+        check('email')
+            .exists({ checkFalsy: true })
+            .isEmail()
+            .withMessage('Invalid email.'),
+        check('username')
+            .exists({ checkFalsy: true })
+            .isLength({ min: 4 })
+            .withMessage('Username is required'),
+        check('username')
+            .not()
+            .isEmail()
+            .withMessage('Username cannot be an email.'),
+        check('password')
+            .exists({ checkFalsy: true })
+            .isLength({ min: 6 })
+            // .withMessage('Password must be 6 characters or more.')
+            ,
+        check('firstName')
+            .exists({ checkFalsy: true })
+            .isAlpha()
+            .withMessage('First Name is required'),
+        check('lastName')
+            .exists({ checkFalsy: true})
+            .isAlpha()
+            .withMessage('Last Name is required'),
+        handleValidationErrors
+    ];
+
+router.post('/', validateSignup, async (req, res, next) => {
     const { email, password, username, firstName, lastName } = req.body;
     const hashedPassword = bcrypt.hashSync(password);
-    const user = await User.create({
-        email, username, hashedPassword, firstName, lastName
-    });
+    try {
+        const user = await User.create({ email, username, hashedPassword, firstName, lastName });
+    } catch (err) {
+        // console.log("---CAUGHT ERROR:--- ", err.errors[0].path);
+        const error = new Error();
+        error.errors = {};
+        error.message = "User already exists";
+        error.status = 500;
+
+        if (err.errors[0].path === 'username') {
+            error.errors.username = "User with that username already exists"
+        } else if (err.errors[0].path === 'email') {
+            error.errors.email = "User with that email already exists"
+        }
+
+        return next(error);
+    }
 
     const safeUser = {
         id: user.id,
@@ -33,54 +79,7 @@ router.post('/', async (req, res) => {
 });
 
 
-//newSection/ Validate Signup
-const validateSignup = [
-    check('email')
-        .exists({ checkFalsy: true })
-        .isEmail()
-        .withMessage('Please provide a valid email.'),
-    check('username')
-        .exists({ checkFalsy: true })
-        .isLength({ min: 4 })
-        .withMessage('Please provide a username with at least 4 characters.'),
-    check('username')
-        .not()
-        .isEmail()
-        .withMessage('Username cannot be an email.'),
-    check('password')
-        .exists({ checkFalsy: true })
-        .isLength({ min: 6 })
-        .withMessage('Password must be 6 characters or more.'),
-    check('firstName')
-        .exists({ checkFalsy: true })
-        .isAlpha()
-        .withMessage('Name can only contain letters'),
-    check('lastName')
-        .exists({ checkFalsy: true})
-        .isAlpha()
-        .withMessage('Name can only contain letters'),
-    handleValidationErrors
-];
 
-router.post('/', validateSignup, async (req, res) => {
-    const { email, password, username, firstName, lastName } = req.body;
-    const hashedPassword = bcrypt.hashSync(password);
-    const user = await User.create({ email, username, hashedPassword, firstName, lastName });
-
-    const safeUser = {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        firstName: user.firstName,
-        lastName: user.lastName
-    };
-
-    await setTokenCookie(res, safeUser);
-
-    return res.json({
-        user: safeUser
-    });
-});
 
 
 module.exports = router;
