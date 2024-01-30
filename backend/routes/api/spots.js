@@ -13,7 +13,16 @@ const router = express.Router();
 //newSection/ Get all Spots
 
 router.get('/', async (req, res, next) => {
-    const spots  = await Spot.findAll();
+
+    const spots  = await Spot.findAll({
+        include: {
+            model: SpotImage,
+            where: {
+                preview: true
+            },
+            attributes: ["imageUrl"]
+        }
+    });
 
     return res.json(spots);
 })

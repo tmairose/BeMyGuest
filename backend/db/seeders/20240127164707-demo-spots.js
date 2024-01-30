@@ -56,7 +56,8 @@ module.exports = {
         description: 'This is the TestThree Spot description.',
         price: 3
       },
-    ], { validate: true })
+    ], { validate: true });
+
   },
 
   async down (queryInterface, Sequelize) {
