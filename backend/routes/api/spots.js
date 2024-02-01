@@ -299,6 +299,10 @@ router.get('/', async (req, res, next) => {
 })
 
 //newSection/ Create new Review
+
+//! Section needs to be fixed. Need to check spotId is valid, user and spot combo is unique,
+//!     and add Body Validations
+
 router.post("/:spotId/reviews", async (req, res, next) => {
     let { spotId } = req.params;
     spotId = parseInt(spotId);
