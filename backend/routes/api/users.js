@@ -45,8 +45,9 @@ const router = express.Router();
 router.post('/', validateSignup, async (req, res, next) => {
     const { email, password, username, firstName, lastName } = req.body;
     const hashedPassword = bcrypt.hashSync(password);
+    let user;
     try {
-        const user = await User.create({ email, username, hashedPassword, firstName, lastName });
+        user = await User.create({ email, username, hashedPassword, firstName, lastName });    
     } catch (err) {
         // console.log("---CAUGHT ERROR:--- ", err.errors[0].path);
         const error = new Error();
