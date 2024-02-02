@@ -300,10 +300,20 @@ router.get('/', async (req, res, next) => {
 
 //newSection/ Create new Review
 
-//! Section needs to be fixed. Need to check spotId is valid, user and spot combo is unique,
-//!     and add Body Validations
 
-router.post("/:spotId/reviews", async (req, res, next) => {
+    //subSection/ Validate User Input
+    const validateReview = [
+        check('review')
+            .exists({ checkFalsy: true })
+            .withMessage("Review text is required"),
+        check('stars')
+            .exists({ checkFalsy: true })
+            .isFloat({min: 1, max: 5})
+            .withMessage("Stars must be an integer from 1 to 5"),
+        handleValidationErrors
+    ]
+
+router.post("/:spotId/reviews",validateReview, async (req, res, next) => {
     let { spotId } = req.params;
     spotId = parseInt(spotId);
 
@@ -313,26 +323,6 @@ router.post("/:spotId/reviews", async (req, res, next) => {
 
     const { review, stars } = req.body;
 
-    let spotReviews = await Review.findAll({
-        where: {
-            [Op.and]: {
-                userId: userId,
-                spotId: spotId
-            }
-        }
-    })
-    
-    
-    //check user already reviewed
-    if (spotReviews.length >= 1) {
-        const error = new Error();
-        error.message = "User has already reviewed this spot"
-        error.status = 404;
-
-        return next(error);
-    }
-
-
     let newReview = await Review.create({
         userId: userId,
         spotId: spotId,
@@ -340,12 +330,8 @@ router.post("/:spotId/reviews", async (req, res, next) => {
         stars: stars
     })
 
-    newReview = newReview.toJSON();
+    return res.json(newReview)
 
-    console.log("################## ", newReview, " ##########################");
-
-
-    // return res.json(newReview);
 })
 
 
