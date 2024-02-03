@@ -323,6 +323,43 @@ router.post("/:spotId/reviews",validateReview, async (req, res, next) => {
 
     const { review, stars } = req.body;
 
+    
+    let validateSpot = await Spot.findByPk(spotId, {
+        attributes: {
+            include: ['id'],
+            exclude: ['address', 'city', 'state', 'country', 'lat', 'lng', 'name', 'description', 'price', 'createdAt', 'updatedAt']
+        },
+        include: {
+            model: Review,
+            attributes: {
+                include: ['userId', 'stars'],
+                exclude: ['createdAt', 'updatedAt']
+            }
+        }
+    })
+
+    //! invalid spotId
+    if (validateSpot === null) {
+        const error = new Error();
+        error.message = "Spot couldn't be found"
+        error.status = 404;
+
+        return next(error);
+    }
+
+    validateSpot = validateSpot.toJSON()
+
+    //! already reviewed
+    if (validateSpot.Reviews.length) {
+        const error = new Error();
+        error.message = "User already has a review for this spot"
+
+        return next(error)
+    }
+    
+    console.log("########### ", validateSpot, " ############");
+
+
     let newReview = await Review.create({
         userId: userId,
         spotId: spotId,
