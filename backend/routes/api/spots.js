@@ -5,7 +5,7 @@ const { check } = require('express-validator');
 const { handleValidationErrors } = require('../../utils/validation');
 
 const { setTokenCookie, requireAuth } = require('../../utils/auth');
-const { Spot, User, Review, SpotImage, Booking } = require('../../db/models');
+const { Spot, User, Review, ReviewImage, SpotImage, Booking } = require('../../db/models');
 
 const router = express.Router();
 
@@ -248,8 +248,9 @@ router.put('/:spotId', validateNewSpot, async (req, res, next) => {
         }
     });
 
-    return res.json(spotToEdit);
+    spotToEdit = await Spot.findByPk(spotId);
 
+    return res.json(spotToEdit);
 })
 
 
@@ -296,6 +297,44 @@ router.get('/', async (req, res, next) => {
 
 
     return res.json(spots);
+})
+
+//newSection/ Get Reviews by Spot
+router.get('/:spotId/reviews', async (req, res, next) => {
+    let { spotId } = req.params;
+    spotId = parseInt(spotId);
+
+
+
+    let spotReviews = await Review.findAll({
+        where: {
+            spotId: spotId
+        },
+        include:[
+            {
+            model: User,
+            attributes: {
+                exclude: ['username', 'email', 'hashedPassword', 'createdAt', 'updatedAt']
+                }
+            },
+            {
+                model: ReviewImage,
+                attributes: {
+                    exclude: ['createdAt', 'updatedAt']
+                }
+            }
+    ]
+    })
+
+    if (!spotReviews.length) {
+        const error = new Error();
+        error.message = "Spot couldn't be found"
+        error.status = 404;
+
+        return next(error);
+    }
+
+    return res.json(spotReviews)
 })
 
 //newSection/ Create new Review
