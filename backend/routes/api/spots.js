@@ -412,17 +412,7 @@ router.post("/:spotId/reviews",validateReview, async (req, res, next) => {
 
 
 //newSection/ Create Booking using spotId
-
-    //subSection/ Validate Booking
-    const validateBooking = [
-        check('startDate')
-            .exists({checkFalsy: true})
-            .equals('endDate')
-            .withMessage("endDate cannot be on or before startDate"),
-        handleValidationErrors
-    ]
-
-router.post('/:spotId/bookings', /*validateBooking,*/ async (req, res, next) => {
+router.post('/:spotId/bookings', async (req, res, next) => {
     let { user } = req;
     user = user.toJSON();
     let userId = user.id;
@@ -430,18 +420,8 @@ router.post('/:spotId/bookings', /*validateBooking,*/ async (req, res, next) => 
     let { spotId } = req.params;
     spotId = parseInt(spotId);
 
-    let { startDate, endDate } = req.body;
-    let start = new Date(startDate);
-    let end = new Date(endDate);
-
-    let bookingSpot = await Booking.findAll({
-        where: {
-            spotId: spotId
-        }
-    })
-
-    //check Spot exists
-    if (!bookingSpot.length) {
+    let findSpot = await Spot.findByPk(spotId);
+    if (!findSpot) {
         const error = new Error();
         error.message = "Spot couldn't be found"
         error.status = 404;
@@ -449,24 +429,48 @@ router.post('/:spotId/bookings', /*validateBooking,*/ async (req, res, next) => 
         return next(error);
     }
 
-    //check Schedule Conflicts
-    bookingSpot.forEach((booking) => {
+    let { startDate, endDate } = req.body;
+    let start = new Date(startDate);
+    let end = new Date(endDate);
 
-        let currBooking = booking.toJSON();
-        let bookedStart = new Date(currBooking.startDate);
-        let bookedEnd = new Date(currBooking.endDate);
+    if (start >= end || end <= start) {
+        const error = new Error();
+        error.message = "Bad Request";
+        error.errors = { endDate: "endDate cannot be on or before startDate"}
+        error.status = 400
 
-        if (start >= end || end <= start) {
-            const error = new Error();
-            error.message = "Bad Request";
-            error.errors = { endDate: "endDate cannot be on or before startDate"}
-            error.status = 400
+        return next(error)
+    }
 
-            return next(error)
+    let bookingSpot = await Booking.findOne({
+        where: {
+            spotId: spotId,
+            [Op.or]: [
+                {
+                    startDate: {
+                        [Op.between]: [start, end]
+                    }
+                },
+                {
+                    endDate: {
+                        [Op.between]: [start, end]
+                    }
+                },
+                {
+                    [Op.and]: {
+                        startDate: {
+                            [Op.lte]: start
+                        },
+                        endDate: {
+                            [Op.gte]: end
+                        } 
+                    }
+                }
+            ]
         }
+    })
 
-        // start is between a booking || end is between a booking || start-end wraps a booking
-        if ((start <= bookedEnd && start >= bookedStart) || (end >= bookedStart && end <= bookedEnd) || (start < bookedStart && end > bookedEnd)) {
+    if (bookingSpot) {
             const error = new Error();
             error.message = "Sorry, this spot is already booked for the specified dates";
             error.errors = [
@@ -476,8 +480,7 @@ router.post('/:spotId/bookings', /*validateBooking,*/ async (req, res, next) => 
             error.status = 403
 
             return next(error)
-        }
-    })
+    }
 
     let newBooking = await Booking.create({
         userId: userId,
@@ -487,6 +490,33 @@ router.post('/:spotId/bookings', /*validateBooking,*/ async (req, res, next) => 
     });
 
     return res.json(newBooking);
+
+})
+
+//newSection/ Get all Bookings for spot by spotId
+router.get('/:spotId/bookings', async (req, res, next) => {
+    let { spotId } = req.params;
+    spotId = parseInt(spotId);
+
+    let { user } = req;
+    user = user.toJSON();
+    userId = user.id;
+
+    //check Spot exists
+    let findSpot = await Spot.findByPk(spotId);
+    if (!findSpot) {
+        const error = new Error();
+        error.message = "Spot couldn't be found"
+        error.status = 404;
+
+        return next(error);
+    }
+
+    //check Spot.ownerId = userId
+    
+
+
+    
 
 })
 

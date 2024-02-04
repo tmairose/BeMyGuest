@@ -9,7 +9,21 @@ const { Spot, User, Review, ReviewImage, SpotImage, Booking } = require('../../d
 
 const router = express.Router();
 
+//newSection/ Get all current User's Bookings
 
+router.get('/current', async (req, res, next) => {
+    let { user } = req;
+    user = user.toJSON();
+    userId = user.id;
+
+    let userBookings = await Booking.findAll({
+        where: {
+            userId: userId
+        }
+    })
+
+    return res.json(userBookings);
+})
 
 
 
