@@ -76,6 +76,7 @@ router.post('/', requireAuth, validateNewSpot, async (req, res, next) => {
         price: price
     });
 
+    res.statusCode = 201;
     return res.json(newSpot)
 
 });
@@ -162,7 +163,7 @@ router.get('/current', requireAuth, async(req, res, next) => {
         return jsonSpot
     })
 
-    return res.json(userSpots);
+    return res.json({Spots: userSpots});
 })
 
 
@@ -282,7 +283,44 @@ router.put('/:spotId', requireAuth, validateNewSpot, async (req, res, next) => {
 
 //newSection/ Get all Spots
 
-router.get('/', async (req, res, next) => {
+    //subSection/ Validate req.query
+    const validateQuery = [
+        check('page')
+            .optional()
+            .isInt({min: 1, max: 10})
+            .withMessage("Page must be greater than or equal to 1"),
+        check('size')
+            .optional()
+            .isInt({min: 1, max: 20})
+            .withMessage("Size must be greater than or equal to 1"),
+        check('minLat')
+            .optional()
+            .isFloat({min: -90, max: 90})
+            .withMessage("Minimum latitude is invalid"),
+        check('maxLat')
+            .optional()
+            .isFloat({min: -90, max: 90})
+            .withMessage("Maximum latitude is invalid"),
+        check('minLng')
+            .optional()
+            .isFloat({min: -180, max: 180})
+            .withMessage("Minimum latitude is invalid"),
+        check('maxLng')
+            .optional()
+            .isFloat({min: -180, max: 180})
+            .withMessage("Maximum latitude is invalid"),
+        check('minPrice')
+            .optional()
+            .isFloat({min: 0})
+            .withMessage("Minimum price must be greater than or equal to 0"),
+        check('maxPrice')
+            .optional()
+            .isFloat({min: 0})
+            .withMessage("Maximum price must be greater than or equal to 0"),
+        handleValidationErrors
+    ]
+
+router.get('/', validateQuery, async (req, res, next) => {
 
     let { page, size, minLat, maxLat, minLng, maxLng, minPrice, maxPrice } = req.query;
 
@@ -311,8 +349,6 @@ router.get('/', async (req, res, next) => {
         if (minPrice) where.price = { [Op.gte]: parseInt(minPrice) };
         if (maxPrice) where.price = { [Op.lte]: parseInt(maxPrice) };
     }
-
-    console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@", where);
 
     let spots  = await Spot.findAll({
         where: where,
@@ -383,7 +419,7 @@ router.get('/:spotId/reviews', async (req, res, next) => {
         return next(error);
     }
 
-    return res.json(spotReviews)
+    return res.json({Reviews: spotReviews})
 })
 
 //newSection/ Create new Review
@@ -401,7 +437,7 @@ router.get('/:spotId/reviews', async (req, res, next) => {
         handleValidationErrors
     ]
 
-router.post("/:spotId/reviews", requireAuth,validateReview, async (req, res, next) => {
+router.post("/:spotId/reviews", requireAuth, validateReview, async (req, res, next) => {
     let { spotId } = req.params;
     spotId = parseInt(spotId);
 
@@ -425,6 +461,8 @@ router.post("/:spotId/reviews", requireAuth,validateReview, async (req, res, nex
             }
         }
     })
+
+
 
     //! invalid spotId
     if (validateSpot === null) {
@@ -455,6 +493,7 @@ router.post("/:spotId/reviews", requireAuth,validateReview, async (req, res, nex
         stars: stars
     })
 
+    res.statusCode = 201;
     return res.json(newReview)
 
 })
@@ -608,7 +647,7 @@ router.get('/:spotId/bookings', requireAuth, async (req, res, next) => {
             getBookingsNonOwner.push(genBookingInfo);
         })
 
-        return res.json(getBookingsNonOwner);
+        return res.json({Bookings: getBookingsNonOwner});
     }
 
     const getBookingsOwner = [];
@@ -617,7 +656,7 @@ router.get('/:spotId/bookings', requireAuth, async (req, res, next) => {
         getBookingsOwner.push(booking);
     })
 
-    return res.json(getBookingsOwner);
+    return res.json({Bookings: getBookingsOwner});
 
 })
 

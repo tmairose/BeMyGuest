@@ -50,7 +50,7 @@ router.get('/current', requireAuth, async (req, res, next) => {
         ]
     })
 
-    return res.json(userReviews);
+    return res.json({Reviews: userReviews});
 })
 
 

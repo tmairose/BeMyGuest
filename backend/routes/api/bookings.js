@@ -19,10 +19,19 @@ router.get('/current', requireAuth, async (req, res, next) => {
     let userBookings = await Booking.findAll({
         where: {
             userId: userId
+        },
+        include: {
+            model: Spot,
+            attributes: {
+                exclude: ['createdAt', 'updatedAt']
+            },
+            include: {
+                model: SpotImage
+            }
         }
     })
 
-    return res.json(userBookings);
+    return res.json({Bookings: userBookings});
 })
 
 //newSection/ Edit a booking
@@ -67,7 +76,6 @@ router.put('/:bookingId', requireAuth, async (req, res, next) => {
 
     let bookingSpot = await Booking.findOne({
         where: {
-            id: bookingId,
             [Op.or]: [
                 {
                     startDate: {
@@ -93,7 +101,7 @@ router.put('/:bookingId', requireAuth, async (req, res, next) => {
         }
     })
 
-    if (bookingSpot) {
+    if (bookingSpot && bookingSpot.id !== findBooking.id) {
             const error = new Error();
             error.message = "Sorry, this spot is already booked for the specified dates";
             error.errors = [
@@ -105,17 +113,10 @@ router.put('/:bookingId', requireAuth, async (req, res, next) => {
             return next(error)
     }
 
-    let editedBooking = await Booking.update({
+    await findBooking.update({
         startDate: start,
         endDate: end
-    },
-    {
-        where: {
-            id: bookingId
-        }
     })
-
-    findBooking = await Booking.findByPk(bookingId);
 
     return res.json(findBooking);
 
