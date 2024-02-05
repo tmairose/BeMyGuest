@@ -10,7 +10,7 @@ const { Spot, User, Review, ReviewImage, SpotImage, Booking } = require('../../d
 const router = express.Router();
 
 //newSection/ Get Reviews of Current User
-router.get('/current', async (req, res, next) => {
+router.get('/current', requireAuth, async (req, res, next) => {
     let { user } = req;
     user = user.toJSON();
     let userId = user.id;
@@ -56,7 +56,7 @@ router.get('/current', async (req, res, next) => {
 
 
 //newSection/ Create Image for a Review
-router.post('/:reviewId/images', async (req, res, next) => {
+router.post('/:reviewId/images', requireAuth, async (req, res, next) => {
     let { reviewId } = req.params;
     reviewId = parseInt(reviewId);
 
@@ -74,6 +74,18 @@ router.post('/:reviewId/images', async (req, res, next) => {
         error.message = "Review couldn't be found"
         error.status = 404;
         
+        return next(error);
+    }
+
+    //make sure User is also owner
+    let { user } = req;
+    user = user.toJSON();
+    const userId = user.id;
+    if (review.userId !== userId) {
+        const error = new Error();
+        error.message = "Forbidden"
+        error.status = 403;
+
         return next(error);
     }
     
@@ -117,7 +129,7 @@ router.post('/:reviewId/images', async (req, res, next) => {
         handleValidationErrors
     ]
 
-router.put('/:reviewId', validateReview, async (req, res, next) => {
+router.put('/:reviewId', requireAuth, validateReview, async (req, res, next) => {
     let { reviewId } = req.params;
     reviewId = parseInt(reviewId);
 
@@ -132,8 +144,19 @@ router.put('/:reviewId', validateReview, async (req, res, next) => {
         return next(error);
     }
 
-    findReview = findReview.toJSON();
-    console.log("@@@@@@@", findReview)
+    //make sure User is also owner
+    let { user } = req;
+    user = user.toJSON();
+    const userId = user.id;
+    if (findReview.userId !== userId) {
+        const error = new Error();
+        error.message = "Forbidden"
+        error.status = 403;
+
+        return next(error);
+    }
+
+    // findReview = findReview.toJSON();
 
     await Review.update({
         review: review,
@@ -149,6 +172,37 @@ router.put('/:reviewId', validateReview, async (req, res, next) => {
 
     return res.json(findReview)
 
+})
+
+//newSection/ Delete a Review
+router.delete('/:reviewId', requireAuth, async (req, res, next) => {
+    let { reviewId } = req.params;
+    reviewId = parseInt(reviewId);
+
+    let reviewToDelete = await Review.findByPk(reviewId);
+    if (!reviewToDelete) {
+        const error = new Error();
+        error.message = "Review couldn't be found"
+        error.status = 404;
+
+        return next(error);
+    }
+
+    //make sure User is also owner
+    let { user } = req;
+    user = user.toJSON();
+    const userId = user.id;
+    if (reviewToDelete.userId !== userId) {
+        const error = new Error();
+        error.message = "Forbidden"
+        error.status = 403;
+
+        return next(error);
+    }
+
+    await reviewToDelete.destroy();
+
+    return res.json({message: "Successfully deleted"});
 })
 
 

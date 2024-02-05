@@ -47,7 +47,7 @@ const router = express.Router();
         handleValidationErrors
     ]
 
-router.post('/',validateNewSpot, async (req, res, next) => {
+router.post('/', requireAuth, validateNewSpot, async (req, res, next) => {
     let { user } = req;
     user = user.toJSON();
     let userId = user.id;
@@ -82,15 +82,28 @@ router.post('/',validateNewSpot, async (req, res, next) => {
 
 //newSection/ Create Image for a Spot
 
-router.post('/:spotId/images', async (req, res, next) => {
+router.post('/:spotId/images', requireAuth, async (req, res, next) => {
     let { spotId } = req.params;
     spotId = parseInt(spotId);
 
+    
     const checkValidSpot = await Spot.findByPk(spotId);
     if (checkValidSpot === null) {
         const error = new Error();
         error.message = "Spot couldn't be found"
         error.status = 404;
+        
+        return next(error);
+    }
+    
+    //make sure User is also owner
+    let { user } = req;
+    user = user.toJSON();
+    const userId = user.id;
+    if (checkValidSpot.ownerId !== userId) {
+        const error = new Error();
+        error.message = "Forbidden"
+        error.status = 403;
 
         return next(error);
     }
@@ -113,7 +126,7 @@ router.post('/:spotId/images', async (req, res, next) => {
 
 //newSection/ Get all Spots of Current User
 
-router.get('/current', async(req, res, next) => {
+router.get('/current', requireAuth, async(req, res, next) => {
     let { user } = req;
     user = user.toJSON();
     let userId = user.id;
@@ -215,7 +228,7 @@ router.get('/:spotId', async (req, res, next) => {
 
 //newSection/ Edit Spot by Id
 
-router.put('/:spotId', validateNewSpot, async (req, res, next) => {
+router.put('/:spotId', requireAuth, validateNewSpot, async (req, res, next) => {
     let { spotId } = req.params;
     spotId = parseInt(spotId);
     let { address, city, state, country, lat, lng, name, description, price } = req.body;
@@ -227,6 +240,18 @@ router.put('/:spotId', validateNewSpot, async (req, res, next) => {
         const error = new Error();
         error.message = "Spot couldn't be found"
         error.status = 404;
+
+        return next(error);
+    }
+
+    //make sure User is also owner
+    let { user } = req;
+    user = user.toJSON();
+    const userId = user.id;
+    if (spotToEdit.ownerId !== userId) {
+        const error = new Error();
+        error.message = "Forbidden"
+        error.status = 403;
 
         return next(error);
     }
@@ -259,7 +284,38 @@ router.put('/:spotId', validateNewSpot, async (req, res, next) => {
 
 router.get('/', async (req, res, next) => {
 
+    let { page, size, minLat, maxLat, minLng, maxLng, minPrice, maxPrice } = req.query;
+
+    const pagination = {};
+    if (page) pagination.limit = parseInt(size);
+    if (size) pagination.offset = parseInt(size) * (parseInt(page) - 1);
+
+    const where = {};
+    if (minLat && maxLat) {
+        where.lat = { [Op.between]: [minLat, maxLat] };
+    } else {
+        if (minLat) where.lat = { [Op.gte]: parseInt(minLat) };
+        if (maxLat) where.lat = { [Op.lte]: parseInt(maxLat) };
+    }
+
+    if (minLng && maxLng) {
+        where.lng = { [Op.between]: [minLng, maxLng] };
+    } else {
+        if (minLng) where.lng = { [Op.gte]: parseInt(minLng) };
+        if (maxLng) where.lng = { [Op.lte]: parseInt(maxLng) };
+    }
+
+    if (minPrice && maxPrice) {
+        where.price = { [Op.between]: [minPrice, maxPrice] };
+    } else {
+        if (minPrice) where.price = { [Op.gte]: parseInt(minPrice) };
+        if (maxPrice) where.price = { [Op.lte]: parseInt(maxPrice) };
+    }
+
+    console.log("@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@", where);
+
     let spots  = await Spot.findAll({
+        where: where,
         include: [
         {
             model: SpotImage,
@@ -272,16 +328,9 @@ router.get('/', async (req, res, next) => {
             model: Review,
             attributes: ["stars"]
         }
-    ]
+    ],
+    ...pagination
     });
-
-    //console.log(spots[0].Reviews[0].dataValues.stars)
-
-    //For each Spot =>
-    //  For Each Review =>
-    //      AvgRating += dataValues.stars
-
-    //! Probably need protections against having no reviews at a spot
 
     spots = spots.map((spot)=> {
         let avgRating = 0;
@@ -352,7 +401,7 @@ router.get('/:spotId/reviews', async (req, res, next) => {
         handleValidationErrors
     ]
 
-router.post("/:spotId/reviews",validateReview, async (req, res, next) => {
+router.post("/:spotId/reviews", requireAuth,validateReview, async (req, res, next) => {
     let { spotId } = req.params;
     spotId = parseInt(spotId);
 
@@ -412,7 +461,7 @@ router.post("/:spotId/reviews",validateReview, async (req, res, next) => {
 
 
 //newSection/ Create Booking using spotId
-router.post('/:spotId/bookings', async (req, res, next) => {
+router.post('/:spotId/bookings', requireAuth, async (req, res, next) => {
     let { user } = req;
     user = user.toJSON();
     let userId = user.id;
@@ -425,6 +474,15 @@ router.post('/:spotId/bookings', async (req, res, next) => {
         const error = new Error();
         error.message = "Spot couldn't be found"
         error.status = 404;
+
+        return next(error);
+    }
+
+    if (findSpot.toJSON().ownerId === userId) {
+        const error = new Error();
+        error.errors = "Forbidden"
+        error.message = "Cannot create a booking at your own Spot"
+        error.status = 403;
 
         return next(error);
     }
@@ -494,17 +552,38 @@ router.post('/:spotId/bookings', async (req, res, next) => {
 })
 
 //newSection/ Get all Bookings for spot by spotId
-router.get('/:spotId/bookings', async (req, res, next) => {
+router.get('/:spotId/bookings', requireAuth, async (req, res, next) => {
     let { spotId } = req.params;
     spotId = parseInt(spotId);
 
     let { user } = req;
-    user = user.toJSON();
-    userId = user.id;
+    if (user) {
+        user = user.toJSON();
+        userId = user.id;
+    }
 
-    //check Spot exists
-    let findSpot = await Spot.findByPk(spotId);
-    if (!findSpot) {
+    
+    let getSpotBookings = await Booking.findAll({
+        where: {
+            spotId: spotId
+        },
+        include: [
+            {
+            model: User,
+            attributes: {
+                exclude: ['username', 'email', 'updatedAt', 'createdAt', 'hashedPassword']
+                }
+            },
+            {
+                model: Spot,
+                attributes: {
+                    exclude: ['id', 'address', 'city', 'state', 'country', 'lat', 'lng', 'name', 'description', 'price', 'createdAt', 'updatedAt']
+                }
+            }
+        ]
+    })
+
+    if (!getSpotBookings.length) {
         const error = new Error();
         error.message = "Spot couldn't be found"
         error.status = 404;
@@ -512,13 +591,66 @@ router.get('/:spotId/bookings', async (req, res, next) => {
         return next(error);
     }
 
-    //check Spot.ownerId = userId
-    
+    const spotBookings = []
+    getSpotBookings.forEach((booking) => {
+        let currBooking = booking.toJSON();
+        spotBookings.push(currBooking)
+    })
 
+    const getBookingsNonOwner = [];
+    if (userId !== spotBookings[0].Spot.ownerId) {
+        spotBookings.forEach((booking) => {
+            const genBookingInfo = {};
+            genBookingInfo.spotId = booking.spotId;
+            genBookingInfo.startDate = booking.startDate;
+            genBookingInfo.endDate = booking.endDate;
 
-    
+            getBookingsNonOwner.push(genBookingInfo);
+        })
+
+        return res.json(getBookingsNonOwner);
+    }
+
+    const getBookingsOwner = [];
+    spotBookings.forEach((booking) => {
+        delete booking.Spot;
+        getBookingsOwner.push(booking);
+    })
+
+    return res.json(getBookingsOwner);
 
 })
 
+
+//newSection/ Delete a Spot
+router.delete('/:spotId', requireAuth, async (req, res, next) => {
+    let {spotId} = req.params;
+    spotId = parseInt(spotId);
+
+    let spotToDelete = await Spot.findByPk(spotId);
+    if (!spotToDelete) {
+        const error = new Error();
+        error.message = "Spot couldn't be found"
+        error.status = 404;
+
+        return next(error);
+    }
+
+    //make sure User is also owner
+    let { user } = req;
+    user = user.toJSON();
+    const userId = user.id;
+    if (spotToDelete.ownerId !== userId) {
+        const error = new Error();
+        error.message = "Forbidden"
+        error.status = 403;
+
+        return next(error);
+    }
+
+    await spotToDelete.destroy();
+
+    return res.json({message: "Successfully deleted"});
+})
 
 module.exports = router;
